@@ -2688,6 +2688,11 @@ int background_initial_conditions(
 	pvecback_integration[pba->index_bi_phi_prime_smg] = pba->parameters_smg[3];
 	break;
 
+    case symmetron: // Initial conditions are 3rd and 4th entries after symmetron parameters
+      pvecback_integration[pba->index_bi_phi_smg] = pba->parameters_smg[3];
+      pvecback_integration[pba->index_bi_phi_prime_smg] = pba->parameters_smg[4];
+      break;
+
     case nkgb:
       {
       /* Action is
@@ -3431,6 +3436,35 @@ int background_gravity_functions(
 
     }
 
+    else if(pba->gravity_model_smg == symmetron){
+      double mass = pba->parameters_smg[0];
+      double mu = pba->parameters_smg[1];
+      double lambda = pow(mu/pba->parameters_smg[2],2.); // lambda = (mu/v)^2
+
+      double V = -pow(mu*mass,2.)*(pow(phi,-0.5)-1)+lambda*pow(mass,4.)*pow(pow(phi,-0.5)-1,2.);
+      double V_phi = 0.5*pow(mu*mass,2.)*pow(phi,-1.5) - lambda*pow(mass,4.)*pow(phi,-1.5)*(pow(phi,-0.5)-1.);
+      double omega = 0.5*(0.25*pow(mass,2.)/(pow(phi,-0.5)-1.)-3.);
+      double omega_phi = 1./16.*pow(mass,2.)*pow(phi,-1.5)*pow(pow(phi,-0.5)-1,-2.);
+
+      G2 = omega/phi*X - phi*phi*V/2;
+      G2_X = omega/phi;
+      G2_Xphi = -omega/pow(phi,2.) + omega_phi/phi;
+      G2_phi = X*(-omega/pow(phi,2.) + omega_phi/phi) - (phi*V + phi*phi*V_phi/2.);
+
+      // double V = 3.*pba->parameters_smg[0]*pow(pba->H0,2);
+      // double omega = pba->parameters_smg[1];
+      //
+      // G2 = -V + omega*X/phi;
+      // G2_X = omega/phi;
+      // G2_Xphi = -omega/pow(phi,2);
+      // G2_phi = -omega*X/pow(phi,2);
+
+      G4_smg = (phi-1.)/2.;
+      G4 = phi/2.;
+      G4_phi = 1./2.;
+
+    }
+
     else if(pba->gravity_model_smg == nkgb){
 
       /* Action is
@@ -3889,6 +3923,12 @@ int background_gravity_parameters(
      printf("Modified gravity: Brans Dicke with parameters: \n");
      printf(" -> Lambda = %g, omega_BD = %g, \n    phi_ini = %g (phi_0 = %g), phi_prime_ini = %g \n",
 	    pba->parameters_smg[0],pba->parameters_smg[1],pba->parameters_smg[2],pba->phi_0_smg,pba->parameters_smg[3]);
+     break;
+
+   case symmetron:
+     printf("Modified gravity: Symmetron with parameters: \n");
+     printf(" -> Mass = %g, mu = %g,  v = %g, \n   phi_ini = %g (phi_0 = %g), phi_prime_ini = %g \n",
+      pba->parameters_smg[0],pba->parameters_smg[1],pba->parameters_smg[2],pba->parameters_smg[3], pba->phi_0_smg,pba->parameters_smg[4]);
      break;
 
     case nkgb:
