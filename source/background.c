@@ -3430,6 +3430,8 @@ int background_gravity_functions(
       G2_Xphi = -omega/pow(phi,2);
       G2_phi = -omega*X/pow(phi,2);
 
+      // printf("%f %f %f %f %f \n", phi, G2, G2_X, G2_Xphi, G2_phi);
+
       G4_smg = (phi-1.)/2.;
       G4 = phi/2.;
       G4_phi = 1./2.;
@@ -3442,15 +3444,39 @@ int background_gravity_functions(
       double lambda = pow(mu/pba->parameters_smg[2],2.); // lambda = (mu/v)^2
 
       double V = -pow(mu*mass,2.)*(pow(phi,-0.5)-1)+lambda*pow(mass,4.)*pow(pow(phi,-0.5)-1,2.);
-      double V_phi = 0.5*pow(mu*mass,2.)*pow(phi,-1.5) - lambda*pow(mass,4.)*pow(phi,-1.5)*(pow(phi,-0.5)-1.);
+      double V_phi = pow(phi,-1.5)*pow(mass,2.)*(0.5*pow(mu,2.) - lambda*pow(mass,2.)*(pow(phi,-0.5)-1.));
       double omega = 0.5*(0.25*pow(mass,2.)/(pow(phi,-0.5)-1.)-3.);
       double omega_phi = 1./16.*pow(mass,2.)*pow(phi,-1.5)*pow(pow(phi,-0.5)-1,-2.);
 
-      G2 = omega/phi*X - phi*phi*V/2;
+      G2 = omega/phi*X - phi*phi*V/2.;
       G2_X = omega/phi;
-      G2_Xphi = -omega/pow(phi,2.) + omega_phi/phi;
-      G2_phi = X*(-omega/pow(phi,2.) + omega_phi/phi) - (phi*V + phi*phi*V_phi/2.);
+      G2_Xphi = omega_phi/phi - omega/pow(phi,2.);
+      G2_phi = X*(omega_phi/phi - omega/pow(phi,2.)) - (phi*V + phi*phi*V_phi/2.);
 
+      G4_smg = (phi-1.)/2.;
+      G4 = phi/2.;
+      G4_phi = 1./2.;
+
+      // // Substitution of epsilon = (pow(phi,-0.5)-1) to get rid of 1-... being small errors
+      // // Let phi in code = epsilon = 1/(real_phi^(-0.5)-1), X = (d_mu real_phi)^2
+      // double V = -pow(mu*mass,2.)/phi+lambda*pow(mass,4.)*pow(phi,-2.);
+      // double V_phi = pow(mu*mass,2.)*pow(phi,-2.)-2.*lambda*pow(mass,4.)*pow(phi,-3.);
+      // double omega = 0.5*(0.25*pow(mass,2.)*phi-3.);
+      // double omega_phi = 1./8.*pow(mass,2.);
+      //
+      // G2 = omega*X*pow((phi+1.)/phi,2.) - V/2.*pow(phi/(phi+1.),4.);
+      // G2_X = omega*pow((phi+1.)/phi,2.);
+      // G2_Xphi = omega_phi*pow((phi+1.)/phi,2.)-omega*(phi+1.)/pow(phi,3.);
+      // G2_phi = X*(omega_phi*pow((phi+1.)/phi,2.)-omega*(phi+1.)/pow(phi,3.))
+      //           -0.5*pow((phi+1.)/phi,3.)*(4*V/pow(phi,2.)+phi/(phi+1.)*V_phi);
+      //
+      // G4 = pow((phi+1.)/phi,-2.)/2.;
+      // G4_phi = phi/pow(phi+1.,3.);
+      // G4_smg = G4-G4_phi;
+
+      // printf("%f %f %e \n", phi, omega, V);
+
+      // BD debug functions
       // double V = 3.*pba->parameters_smg[0]*pow(pba->H0,2);
       // double omega = pba->parameters_smg[1];
       //
@@ -3459,9 +3485,6 @@ int background_gravity_functions(
       // G2_Xphi = -omega/pow(phi,2);
       // G2_phi = -omega*X/pow(phi,2);
 
-      G4_smg = (phi-1.)/2.;
-      G4 = phi/2.;
-      G4_phi = 1./2.;
 
     }
 
@@ -3539,6 +3562,7 @@ int background_gravity_functions(
     // pvecback[pba->index_bg_M2_smg] = 2.*G4 + (2.*G4_X + H*phi_prime*pow(a,-1)*G5_X + (-1.)*G5_phi)*(-2.)*X;
     pvecback[pba->index_bg_delta_M2_smg] = 2.*(G4_smg - 2.*X*G4_X + X*G5_phi) - 2.*X*H*phi_prime*pow(a,-1)*G5_X;
     pvecback[pba->index_bg_M2_smg] = 1. + pvecback[pba->index_bg_delta_M2_smg];
+    printf("G4_smg = %e, X, = %e, M2 = %e \n", G4_smg,X, pvecback[pba->index_bg_M2_smg]);
 
     class_test_except(isnan(pvecback[pba->index_bg_H]),
 	       pba->error_message,

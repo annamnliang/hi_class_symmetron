@@ -1806,11 +1806,12 @@ if (strcmp(string1,"nkgb") == 0 || strcmp(string1,"n-kgb") == 0 || strcmp(string
       if((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)){
           double omega_BD = pba->parameters_smg[1];
           pba->M_pl_today_smg = (4.+2.*omega_BD)/(3.+2.*omega_BD);
+          printf("check\n" );
       }
     }
 
       class_read_double("param_shoot_M_pl_smg",pba->parameters_smg[pba->tuning_index_2_smg]);
-//       printf("updating param = %e to tune M_pl \n",pba->parameters_smg[pba->tuning_index_2_smg]);
+      printf("updating param = %e to tune M_pl \n",pba->parameters_smg[pba->tuning_index_2_smg]);
     }
 
   }//end of has_smg
@@ -4806,7 +4807,7 @@ int input_get_guess(double *xguess,
       //TODO CONTINUE HERE
     case M_pl_today_smg:
         xguess[index_guess] = ba.parameters_smg[ba.tuning_index_2_smg];
-        dxdy[index_guess] = 1;
+        dxdy[index_guess] = 0.5;
       break;
     case omega_ini_dcdm:
       Omega0_dcdmdr = 1./(ba.h*ba.h);
@@ -4836,7 +4837,7 @@ int input_get_guess(double *xguess,
       dxdy[index_guess] = 2.43e-9/0.87659;
       break;
     }
-    //printf("xguess = %g\n",xguess[index_guess]);
+    // printf("xguess = %g\n",xguess[index_guess]);
   }
 
   for (i=0; i<pfzw->fc.size; i++) {
@@ -4862,14 +4863,14 @@ int input_find_root(double *xzero,
   class_call(input_get_guess(&x1, &dxdy, pfzw, errmsg),
              errmsg, errmsg);
 
-  //      printf("x1= %g\n",x1);
+       printf("x1= %g\n",x1);
   class_call(input_fzerofun_1d(x1,
                                pfzw,
                                &f1,
                                errmsg),
                  errmsg, errmsg);
   (*fevals)++;
-  //printf("x1= %g, f1= %g\n",x1,f1);
+  printf("first guess: x1= %g, f1= %g\n",x1,f1);
 
   /** - Do linear hunt for boundaries */
   dxdytrue=dxdy;
@@ -4886,7 +4887,7 @@ int input_find_root(double *xzero,
         dx = 1.5*1e-5*f1/fabs(f1)*dxdy;
       //     return _SUCCESS_;
 
-  //    printf("f1 = %.3e, dxdy = %.3e, dx = %.3e \n",f1,dxdy,dx);
+     printf("f1 = %.3e, dxdy = %.3e, dx = %.3e \n",f1,dxdy,dx);
 
 
     //x2 = x1 + search_dir*dx;
@@ -4896,8 +4897,8 @@ int input_find_root(double *xzero,
     for (iter2=1; iter2 <= 3; iter2++) {
       return_function = input_fzerofun_1d(x2,pfzw,&f2,errmsg);
       (*fevals)++;
-      //printf("x2= %g, f2= %g\n",x2,f2);
-      //fprintf(stderr,"iter2=%d\n",iter2);
+      printf("x2= %g, f2= %g\n",x2,f2);
+      fprintf(stderr,"iter2=%d\n",iter2);
 
       if (return_function ==_SUCCESS_) {
         break;
