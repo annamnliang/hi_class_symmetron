@@ -3430,8 +3430,6 @@ int background_gravity_functions(
       G2_Xphi = -omega/pow(phi,2);
       G2_phi = -omega*X/pow(phi,2);
 
-      // printf("%f %f %f %f %f \n", phi, G2, G2_X, G2_Xphi, G2_phi);
-
       G4_smg = (phi-1.)/2.;
       G4 = phi/2.;
       G4_phi = 1./2.;
@@ -3439,14 +3437,27 @@ int background_gravity_functions(
     }
 
     else if(pba->gravity_model_smg == symmetron){
-      double mass = pba->parameters_smg[0];
-      double mu = pba->parameters_smg[1];
-      double lambda = pow(mu/pba->parameters_smg[2],2.); // lambda = (mu/v)^2
 
-      double V = -pow(mu*mass,2.)*(pow(phi,-0.5)-1)+lambda*pow(mass,4.)*pow(pow(phi,-0.5)-1,2.);
-      double V_phi = pow(phi,-1.5)*pow(mass,2.)*(0.5*pow(mu,2.) - lambda*pow(mass,2.)*(pow(phi,-0.5)-1.));
-      double omega = 0.5*(0.25*pow(mass,2.)/(pow(phi,-0.5)-1.)-3.);
-      double omega_phi = 1./16.*pow(mass,2.)*pow(phi,-1.5)*pow(pow(phi,-0.5)-1,-2.);
+      double mpl = 1.220910e19;
+      double mass = pba->parameters_smg[0]/mpl;   // Mass converted to units of Planck mass
+      double mu = pba->parameters_smg[1];
+      double lambda = pow(mu/pba->parameters_smg[2]*mpl,2.); // lambda = (mu/v)^2, given mass dimension 2 so that V also has mass dimension 2 after mass has been scaled to units of Planck mass.
+
+      double V = (-pow(mu*mass,2.)*(pow(phi,-0.5)-1)+lambda*pow(mass,4.)*pow(pow(phi,-0.5)-1,2.));           // Mass dimension 2 so that it can be absorbed straight into G2
+      double V_phi = pow(phi,-1.5)*pow(mass,2.)*(0.5*pow(mu,2.) - lambda*pow(mass,2.)*(pow(phi,-0.5)-1.));   // Mass dimension 2 so that it can be absorbed straight into G2_phi
+
+      double omega, omega_phi=0.0;
+      double omega_fac = 0.25*pow(mass,2.)/(pow(phi,-0.5)-1.);
+      if (omega_fac < -1.0e20) {
+        omega = 0.5*(-1.0e20-3.);           // Dimensionless
+      } else if (omega_fac > 1.0e20) {
+        omega = 0.5*(1.0e20-3.);            // Dimensionless
+      } else {
+        omega = 0.5*(omega_fac-3.);         // Dimensionless
+      }
+      omega_phi = pow(2.0*omega+3.0, 2.0)*pow(phi,-1.5)/pow(mass,2.);  // Dimensionless
+
+      printf("%g, %g, %g, %g, %g, %g, %g, %g, %g\n", mass, mu, lambda, phi, 1.0 - phi, V, V_phi, omega, omega_phi);
 
       G2 = omega/phi*X - phi*phi*V/2.;
       G2_X = omega/phi;
@@ -3559,10 +3570,10 @@ int background_gravity_functions(
     /* Rewritten by the constraint if ICs have not been set */
     pvecback[pba->index_bg_H] = H;
 
-    // pvecback[pba->index_bg_M2_smg] = 2.*G4 + (2.*G4_X + H*phi_prime*pow(a,-1)*G5_X + (-1.)*G5_phi)*(-2.)*X;
+    //pvecback[pba->index_bg_M2_smg] = 2.*G4 + (2.*G4_X + H*phi_prime*pow(a,-1)*G5_X + (-1.)*G5_phi)*(-2.)*X;
     pvecback[pba->index_bg_delta_M2_smg] = 2.*(G4_smg - 2.*X*G4_X + X*G5_phi) - 2.*X*H*phi_prime*pow(a,-1)*G5_X;
     pvecback[pba->index_bg_M2_smg] = 1. + pvecback[pba->index_bg_delta_M2_smg];
-    printf("G4_smg = %e, X, = %e, M2 = %e \n", G4_smg,X, pvecback[pba->index_bg_M2_smg]);
+    //printf("G4_smg = %e, X = %e, M2 = %e \n", G4_smg, X, pvecback[pba->index_bg_M2_smg]);
 
     class_test_except(isnan(pvecback[pba->index_bg_H]),
 	       pba->error_message,
@@ -3618,6 +3629,8 @@ int background_gravity_functions(
     /* Field equation */
     pvecback[pba->index_bg_phi_prime_prime_smg] = (A*P + (-1.)*F*R)*pow(B*F + (-1.)*A*M,-1);
 
+    printf("a = %g, %g, %g, %g, %g\n", a, rho_tot, phi, phi_prime, pvecback[pba->index_bg_phi_prime_prime_smg]);
+
     /* alpha_T, alpha_M depend on phi''... -> computed now */
     /* alpha_T: tensor speed excess */
     pvecback[pba->index_bg_tensor_excess_smg] = ((pvecback[pba->index_bg_phi_prime_prime_smg] + (-2.)*H*phi_prime*a)*(-2.)*pow(a,-2)*G5_X + (G4_X + (-1.)*G5_phi)*4.)*pow(pvecback[pba->index_bg_M2_smg],-1)*X;
@@ -3627,6 +3640,8 @@ int background_gravity_functions(
 
     /* Energy density of the field */
     pvecback[pba->index_bg_rho_smg] = (5.*G5_X + 2.*X*G5_XX)*2./3.*pow(H,3)*phi_prime*pow(a,-1)*X + ((-1.)*G2 + (G2_X + (-1.)*G3_phi)*2.*X)*1./3. + (G4_phi + (G3_X + (-2.)*G4_Xphi)*(-1.)*X)*(-2.)*H*phi_prime*pow(a,-1) + ((-2.)*G4_smg + ((4.*G4_X + (-3.)*G5_phi)*2. + (2.*G4_XX + (-1.)*G5_Xphi)*4.*X)*X)*pow(H,2);
+
+    //printf("%g, %g\n", pvecback[pba->index_bg_rho_smg], pvecback[pba->index_bg_rho_crit]);
 
     /* Pressure of the field */
     pvecback[pba->index_bg_p_smg] = (G5_X + 2.*X*G5_XX)*2./3.*pow(H,3)*phi_prime*pow(a,-1)*X + ((-4.)/3.*H*phi_prime*pow(a,-2)*X*G5_X + (-2.*G4_smg + (2.*G4_X + (-1.)*G5_phi)*2.*X)*(-2.)/3.*pow(a,-1))*pvecback[pba->index_bg_H_prime] + (6.*G4_smg + ((-2.)*G4_X + (-1.)*G5_phi + (4.*G4_XX + (-3.)*G5_Xphi)*2.*X)*2.*X)*1./3.*pow(H,2) + ((3.*G5_X + 2.*X*G5_XX)*(-2.)/3.*pow(H,2)*pow(a,-2)*X + ((-1.)*G4_phi + (G3_X + (-2.)*G4_Xphi)*X)*(-2.)/3.*pow(a,-2) + (G4_X + (-1.)*G5_phi + (2.*G4_XX + (-1.)*G5_Xphi)*X)*(-4.)/3.*H*phi_prime*pow(a,-3))*pvecback[pba->index_bg_phi_prime_prime_smg] + (G2 + (G3_phi + (-2.)*G4_phiphi)*(-2.)*X)*1./3. + (G4_phi + (G3_X + (-6.)*G4_Xphi + 2.*G5_phiphi)*X)*2./3.*H*phi_prime*pow(a,-1);

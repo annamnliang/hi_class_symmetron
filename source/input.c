@@ -1614,7 +1614,7 @@ int input_read_parameters(
 
         pba->parameters_size_smg = 5;
         class_read_list_of_doubles("parameters_smg",pba->parameters_smg,pba->parameters_size_smg);
-        // pba->parameters_smg[0] = 2*pba->Omega0_smg;
+        //pba->parameters_smg[0] = 2*pba->Omega0_smg;
         pba->tuning_dxdy_guess_smg = 0.5;
         pba->tuning_index_2_smg = 3;
       }
@@ -4807,7 +4807,7 @@ int input_get_guess(double *xguess,
       //TODO CONTINUE HERE
     case M_pl_today_smg:
         xguess[index_guess] = ba.parameters_smg[ba.tuning_index_2_smg];
-        dxdy[index_guess] = 0.5;
+        dxdy[index_guess] = 0.1;
       break;
     case omega_ini_dcdm:
       Omega0_dcdmdr = 1./(ba.h*ba.h);
@@ -4863,7 +4863,6 @@ int input_find_root(double *xzero,
   class_call(input_get_guess(&x1, &dxdy, pfzw, errmsg),
              errmsg, errmsg);
 
-       printf("x1= %g\n",x1);
   class_call(input_fzerofun_1d(x1,
                                pfzw,
                                &f1,
@@ -4874,7 +4873,7 @@ int input_find_root(double *xzero,
 
   /** - Do linear hunt for boundaries */
   dxdytrue=dxdy;
-  for (iter=1; iter<=31; iter++){
+  for (iter=1; iter<=127; iter++){
 
     //Set the search step size according to guessed dxdy on first pass
     //then update with a real one on second pass and keep that until the end.
@@ -4894,7 +4893,7 @@ int input_find_root(double *xzero,
 
     x2 = x1 - dx;
 
-    for (iter2=1; iter2 <= 3; iter2++) {
+    for (iter2=1; iter2 <= 31; iter2++) {
       return_function = input_fzerofun_1d(x2,pfzw,&f2,errmsg);
       (*fevals)++;
       printf("x2= %g, f2= %g\n",x2,f2);
