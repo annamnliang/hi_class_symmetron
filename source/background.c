@@ -3447,31 +3447,22 @@ int background_gravity_functions(
       double V = pow(pba->H0,2)*(-pow(mu*mass,2.)*(pow(phi,-0.5)-1)+lambda*pow(mass,4.)*pow(pow(phi,-0.5)-1,2.));           // Mass dimension 2 (Mpc^-2)
       double V_phi = pow(pba->H0,2)*pow(phi,-1.5)*pow(mass,2.)*(0.5*pow(mu,2.) - lambda*pow(mass,2.)*(pow(phi,-0.5)-1.));   // Mass dimension 2 (Mpc^-2)
 
-      /*// This aims to stop numerical issues by setting an arbitarily large value for omega as omega -> inf (the GR limit)
-      double omega, omega_phi=0.0;
-      double omega_fac = 0.25*pow(mass,2.)/(pow(phi,-0.5)-1.);
-      if (omega_fac < -1.0e20) {
-        omega = 0.5*(-1.0e20-3.);           // Dimensionless
-      } else if (omega_fac > 1.0e20) {
-        omega = 0.5*(1.0e20-3.);            // Dimensionless
-      } else {
-        omega = 0.5*(omega_fac-3.);         // Dimensionless
-      }
-      omega_phi = pow(2.0*omega+3.0, 2.0)*pow(phi,-1.5)/pow(mass,2.);  // Dimensionless*/
-
+      // This aims to stop numerical issues by setting an arbitrarily large value for omega as omega -> inf (the GR limit)
       // No approximation phi \approx 1 in definition of omega.
       double omega, omega_phi;
       double omega_fac = 0.25*pow(mass,2.)/(pow(phi,0.5)-phi);
-      if (omega_fac < -1.0e40) {
-        omega = 0.5*(-1.0e40-3.);           // Dimensionless
-      } else if (omega_fac > 1.0e40) {
-        omega = 0.5*(1.0e40-3.);            // Dimensionless
+      if (omega_fac < -1.0e30) {
+        omega = 0.5*(-1.0e30-3.);           // Dimensionless
+        omega_phi = 0;
+      } else if (omega_fac > 1.0e30) {
+        omega = 0.5*(1.0e30-3.);            // Dimensionless
+        omega_phi = 0;
       } else {
         omega = 0.5*(omega_fac-3.);         // Dimensionless
+        omega_phi = -2.0*pow(2.0*omega+3.0, 2.)/pow(mass,2.)*(0.5*pow(phi,-0.5)-1.);  // Dimensionless
       }
-      omega_phi = -2.0*pow(2.0*omega+3.0, 2.)/pow(mass,2.)*(0.5*pow(phi,-0.5)-1.);  // Dimensionless
 
-      printf("a = %g, omega = %g, omega_phi = %g\n",  a, omega, omega_phi);
+      printf("a = %g, 1-phi = %g, omega = %g, omega_phi = %g\n",  a, 1.0-phi, omega, omega_phi);
 
       G2 = omega/phi*X - phi*phi*V/2.;
       G2_X = omega/phi;
