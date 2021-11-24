@@ -3438,7 +3438,7 @@ int background_gravity_functions(
 
     else if(pba->gravity_model_smg == symmetron){
 
-      double mpl = 1.220910e19;                   // Planck mass in GeV
+      double mpl = 1.220910e19/sqrt(8.0*M_PI);    // reduced Planck mass in GeV
       double mass = pba->parameters_smg[0]/mpl;   // Mass converted to units of Planck mass
       double mu = pba->parameters_smg[1]/mpl;     // mu converted to units of Planck mass
       double vev = pba->parameters_smg[2]/mpl;    // VEV of phi converted to units of Planck mass
@@ -3447,6 +3447,7 @@ int background_gravity_functions(
       double V = pow(pba->H0,2)*(-pow(mu*mass,2.)*(pow(phi,-0.5)-1)+lambda*pow(mass,4.)*pow(pow(phi,-0.5)-1,2.));           // Mass dimension 2 (Mpc^-2)
       double V_phi = pow(pba->H0,2)*pow(phi,-1.5)*pow(mass,2.)*(0.5*pow(mu,2.) - lambda*pow(mass,2.)*(pow(phi,-0.5)-1.));   // Mass dimension 2 (Mpc^-2)
 
+      /*// This aims to stop numerical issues by setting an arbitarily large value for omega as omega -> inf (the GR limit)
       double omega, omega_phi=0.0;
       double omega_fac = 0.25*pow(mass,2.)/(pow(phi,-0.5)-1.);
       if (omega_fac < -1.0e20) {
@@ -3456,9 +3457,21 @@ int background_gravity_functions(
       } else {
         omega = 0.5*(omega_fac-3.);         // Dimensionless
       }
-      omega_phi = pow(2.0*omega+3.0, 2.0)*pow(phi,-1.5)/pow(mass,2.);  // Dimensionless
+      omega_phi = pow(2.0*omega+3.0, 2.0)*pow(phi,-1.5)/pow(mass,2.);  // Dimensionless*/
 
-      //printf("%g, %g, %g, %g, %g, %g, %g, %g, %g\n", mass, mu, lambda, phi, 1.0 - phi, V, V_phi, omega, omega_phi);
+      // No approximation phi \approx 1 in definition of omega.
+      double omega, omega_phi;
+      double omega_fac = 0.25*pow(mass,2.)/(pow(phi,0.5)-phi);
+      if (omega_fac < -1.0e40) {
+        omega = 0.5*(-1.0e40-3.);           // Dimensionless
+      } else if (omega_fac > 1.0e40) {
+        omega = 0.5*(1.0e40-3.);            // Dimensionless
+      } else {
+        omega = 0.5*(omega_fac-3.);         // Dimensionless
+      }
+      omega_phi = -2.0*pow(2.0*omega+3.0, 2.)/pow(mass,2.)*(0.5*pow(phi,-0.5)-1.);  // Dimensionless
+
+      printf("a = %g, omega = %g, omega_phi = %g\n",  a, omega, omega_phi);
 
       G2 = omega/phi*X - phi*phi*V/2.;
       G2_X = omega/phi;
@@ -3525,9 +3538,7 @@ int background_gravity_functions(
 
     }
 
-
     //TODO: Write the Bellini-Sawicki functions and other information to pvecback
-
     pvecback[pba->index_bg_phi_smg] = phi; // value of the scalar field phi
     pvecback[pba->index_bg_phi_prime_smg] = phi_prime; // value of the scalar field phi derivative wrt conformal time
 
@@ -3632,7 +3643,7 @@ int background_gravity_functions(
 
     //printf("%e ,%e, %e\n", G2_X*pow(H,-1)*pow(a,-2), G2_X, a);
 
-    printf("a = %g, %g, %g, %g, %g\n", a, rho_tot, phi, phi_prime, pvecback[pba->index_bg_phi_prime_prime_smg]);
+    //printf("a = %g, rho_tot = %g, phi = %g, phi_prime = %g, phi_prime_prime = %g\n", a, rho_tot, phi, phi_prime, pvecback[pba->index_bg_phi_prime_prime_smg]);
 
     /* alpha_T, alpha_M depend on phi''... -> computed now */
     /* alpha_T: tensor speed excess */
