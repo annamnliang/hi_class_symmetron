@@ -2211,7 +2211,6 @@ int background_solve(
                   pba->error_message,
                   "cannot copy data back to pba->background_table");
 
-
       pvecback[pba->index_bg_cs2num_smg] = ((-2.) + bra)*((-1.)*bra + (-2.)*run + 2.*ten + (-1.)*bra*ten)*1./2. + pvecback[pba->index_bg_lambda_2_smg];
 
             memcopy_result = memcpy(pba->background_table + i*pba->bg_size + pba->index_bg_cs2num_smg,
@@ -3325,12 +3324,19 @@ int background_gravity_functions(
     double G4_phi=0, G4_phiphi=0, G4_X=0, G4_XX=0, G4_XXX=0, G4_Xphi=0, G4_Xphiphi=0, G4_XXphi=0;
     double G5=0, G5_phi=0, G5_phiphi=0, G5_X=0, G5_XX=0, G5_XXX=0, G5_Xphi=0, G5_Xphiphi=0, G5_XXphi=0;
 
+    // These were added to allow one to solve for phi in the Einstein frame rather than the default Jordan frame (we call varphi)
+    // - these contain the first and second derivative of phi wrt varphi. Implemented to make the symmetron field numerically easier to evolve.
+    // The default values are set so that no other models currently implemented are changed (i.e., phi = varphi).
+    int einstein_flag = 1;
+    double varphi, phi_varphi = 1., phi_varphi_varphi = 0.;   
+
     a = pvecback_B[pba->index_bi_a];
     if (pba->hubble_evolution == _TRUE_)
       H = pvecback_B[pba->index_bi_H];
 
     phi = pvecback_B[pba->index_bi_phi_smg];
     phi_prime = pvecback_B[pba->index_bi_phi_prime_smg];
+    varphi = phi; // May be needed to distinguish between Einstein and Jordan frame fields.
 
     X = 0.5*pow(phi_prime/a,2);
     rho_tot = pvecback[pba->index_bg_rho_tot_wo_smg];
@@ -3438,69 +3444,154 @@ int background_gravity_functions(
 
     else if(pba->gravity_model_smg == symmetron){
 
+      // Symmetron field parameters
       double mpl = 1.220910e19/sqrt(8.0*M_PI);    // reduced Planck mass in GeV
       double mass = pba->parameters_smg[0]/mpl;   // Mass converted to units of Planck mass
       double mu = pba->parameters_smg[1]/mpl;     // mu converted to units of Planck mass
       double vev = pba->parameters_smg[2]/mpl;    // VEV of phi converted to units of Planck mass
       double lambda = pow(mu/vev,2.);             // dimensionless lambda = (mu/v)^2
 
-      double V = pow(pba->H0,2)*(-pow(mu*mass,2.)*(pow(phi,-0.5)-1)+lambda*pow(mass,4.)*pow(pow(phi,-0.5)-1,2.));           // Mass dimension 2 (Mpc^-2)
-      double V_phi = pow(pba->H0,2)*pow(phi,-1.5)*pow(mass,2.)*(0.5*pow(mu,2.) - lambda*pow(mass,2.)*(pow(phi,-0.5)-1.));   // Mass dimension 2 (Mpc^-2)
+      // Symmetron field is solved in the Einstein frame - we need to convert phi, phi_prime and X to Jordan frame
+      // to remain consistent with all the expressions below.      
+      double A_smg = 1.0 + pow(phi,2.)/(2.0*pow(mass,2.));
+      double A_smg_phi = 2.0*phi/(2.0*pow(mass,2.));
+      if (einstein_flag) {
+        varphi = 1.0 / pow(A_smg, 2.0);
+        phi_varphi = -0.5 * pow(A_smg,3.0) / A_smg_phi;
+        phi_varphi_varphi = 2.0*pow(mass,2.0)*(3.0/(8.0*phi*pow(varphi,2.5)) - pow(mass,2.0)/(8.0*pow(phi,3.0)*pow(varphi,3.0)));
+      }
+      phi_prime /= phi_varphi;
+      X /= pow(phi_varphi, 2.);
 
-      // This aims to stop numerical issues by setting an arbitrarily large value for omega as omega -> inf (the GR limit)
-      // No approximation phi \approx 1 in definition of omega.
-      double omega, omega_phi;
-      double omega_fac = 0.25*pow(mass,2.)/(pow(phi,0.5)-phi);
-      if (omega_fac < -1.0e30) {
-        omega = 0.5*(-1.0e30-3.);           // Dimensionless
-        omega_phi = 0;
-      } else if (omega_fac > 1.0e30) {
-        omega = 0.5*(1.0e30-3.);            // Dimensionless
-        omega_phi = 0;
-      } else {
-        omega = 0.5*(omega_fac-3.);         // Dimensionless
-        omega_phi = -2.0*pow(2.0*omega+3.0, 2.)/pow(mass,2.)*(0.5*pow(phi,-0.5)-1.);  // Dimensionless
+      // The symmetron has a quadratic coupling to the density. This can be absorbed into an effective potential,
+      // however rho_tot and p_tot then need to be removed explicitly from the equations below or we would be double counting
+      // these. So we set rho_tot = 0 and p_tot = 0 and include scaled_rho and scaled_p in the potential.
+      double scaled_rho = 0., scaled_p = 0., scaled_rho_phi = 0.;
+
+      // photons, dr, relativistic neutrinos/relics
+      scaled_rho += pvecback[pba->index_bg_rho_g];
+      scaled_p += (1./3.) * pvecback[pba->index_bg_rho_g];
+      //printf("photons: %g, %g\n", pvecback[pba->index_bg_rho_g], pow(A_smg, -1.0) * pvecback[pba->index_bg_rho_g]);
+
+      if (pba->has_dr == _TRUE_) {
+        scaled_rho += pvecback[pba->index_bg_rho_dr];
+        scaled_p += (1./3.) * pvecback[pba->index_bg_rho_dr];
+        //printf("dr: %g, %g\n", pvecback[pba->index_bg_rho_dr], pow(A_smg, -1.0) * pvecback[pba->index_bg_rho_dr]);
       }
 
-      printf("a = %g, 1-phi = %g, omega = %g, omega_phi = %g\n",  a, 1.0-phi, omega, omega_phi);
+      if (pba->has_ur == _TRUE_) {
+        scaled_rho += pvecback[pba->index_bg_rho_ur];
+        scaled_p += (1./3.) * pvecback[pba->index_bg_rho_ur];
+        //printf("ur: %g, %g\n", pvecback[pba->index_bg_rho_ur], pow(A_smg, -1.0) * pvecback[pba->index_bg_rho_ur]);
+      }
 
-      G2 = omega/phi*X - phi*phi*V/2.;
-      G2_X = omega/phi;
-      G2_Xphi = omega_phi/phi - omega/pow(phi,2.);
-      G2_phi = X*(omega_phi/phi - omega/pow(phi,2.)) - (phi*V + phi*phi*V_phi/2.);
+      // baryons, cdm, dcdm
+      scaled_rho += A_smg * pvecback[pba->index_bg_rho_b];
+      scaled_rho_phi += A_smg_phi * pvecback[pba->index_bg_rho_b];
+      //printf("baryons: %g, %g\n", pvecback[pba->index_bg_rho_b], A_smg * pvecback[pba->index_bg_rho_b]);
 
-      G4_smg = (phi-1.)/2.;
-      G4 = phi/2.;
+      if (pba->has_cdm == _TRUE_) {
+        scaled_rho += A_smg * pvecback[pba->index_bg_rho_cdm];
+        scaled_rho_phi += A_smg_phi * pvecback[pba->index_bg_rho_cdm];
+        //printf("cdm: %g, %g\n", pvecback[pba->index_bg_rho_cdm], A_smg * pvecback[pba->index_bg_rho_cdm]);
+      }
+
+      if (pba->has_dcdm == _TRUE_) {
+        scaled_rho += pvecback[pba->index_bg_rho_dcdm];
+        scaled_rho_phi += A_smg_phi * pvecback[pba->index_bg_rho_dcdm];
+        //printf("dcdm: %g, %g\n", pvecback[pba->index_bg_rho_dcdm], pvecback[pba->index_bg_rho_dcdm]);
+      }
+
+      // ncdm
+      if (pba->has_ncdm == _TRUE_) {
+
+        /* Loop over species: */
+        for(int n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++){
+
+          double rho_ncdm = pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
+          double p_ncdm = pvecback[pba->index_bg_p_ncdm1+n_ncdm];
+          double w_ncdm = p_ncdm/rho_ncdm;
+
+          scaled_rho += pow(A_smg, 1.0 - 3.0*w_ncdm) * rho_ncdm;
+          scaled_p += pow(A_smg, 1.0 - 3.0*w_ncdm) * p_ncdm;
+          scaled_rho_phi += A_smg_phi * pow(A_smg, -3.0*w_ncdm) * rho_ncdm;
+          //printf("ncdm %d: %g, %g\n", n_ncdm, pvecback[pba->index_bg_rho_ncdm1+n_ncdm], pow(A_smg, -3.0*w_ncdm) * rho_ncdm);
+        }
+      }
+
+      // Lambda
+      if (pba->has_lambda == _TRUE_) {
+        scaled_rho += pow(A_smg, 4.0) * pvecback[pba->index_bg_rho_lambda];
+        scaled_p -= pow(A_smg, 4.0) * pvecback[pba->index_bg_rho_lambda];
+        scaled_rho_phi += A_smg_phi * pow(A_smg, 3.0) * pvecback[pba->index_bg_rho_lambda];
+        //printf("Lambda: %g, %g\n", pvecback[pba->index_bg_rho_lambda], pow(A_smg, 3.0) * pvecback[pba->index_bg_rho_lambda]);
+      }
+
+      // fluid with w(a) and constant cs2
+      if (pba->has_fld == _TRUE_) {
+        scaled_rho += pow(A_smg, 1.0 - 3.0*pvecback[pba->index_bg_w_fld]) * pvecback[pba->index_bg_rho_fld];
+        scaled_p += pvecback[pba->index_bg_w_fld] * pow(A, 1.0 - 3.0*pvecback[pba->index_bg_w_fld]) * pvecback[pba->index_bg_rho_fld];
+        scaled_rho_phi += A_smg_phi * pow(A_smg, -3.0*pvecback[pba->index_bg_w_fld]) * pvecback[pba->index_bg_rho_fld];
+        //printf("Fld: %g, %g\n", pvecback[pba->index_bg_rho_fld], pow(A_smg, -3.0*pvecback[pba->index_bg_w_fld]) * pvecback[pba->index_bg_rho_fld]);
+      }
+
+      // Quintessence
+      if (pba->has_scf == _TRUE_) {
+        double w_scf = pvecback[pba->index_bg_p_scf]/pvecback[pba->index_bg_rho_scf];
+        scaled_rho += pow(A_smg, 1.0 - 3.0*w_scf) * pvecback[pba->index_bg_rho_scf];
+        scaled_p += w_scf * pow(A_smg, 1.0 - 3.0*w_scf) * pvecback[pba->index_bg_p_scf];
+        scaled_rho_phi += A_smg_phi * pow(A_smg, -3.0*w_scf) * pvecback[pba->index_bg_rho_scf];
+        //printf("Quintessence: %g, %g\n", pvecback[pba->index_bg_rho_scf], pow(A_smg, -3.0*w_scf) * pvecback[pba->index_bg_rho_scf]);
+      }
+
+      double omega, omega_phi, V, V_phi, V_const;
+      if (einstein_flag) {
+
+        // No approximation varphi \approx 1 in definition of omega.
+        omega = 0.5*(pow(2.0*pow(mass,2.) + pow(phi,2.), 2.)/(8.0*pow(phi,2.)) - 3.0);
+        omega_phi = 1.0/8.0*(2.0*pow(mass,2.0)/phi + phi)*(-2.0*pow(mass,2.0)/pow(phi,2.0) + 1.0) * phi_varphi;
+
+        V_const = pow(pba->H0,2)*0.25*pow(mu,4.)*pow(lambda,-0.5);
+        V = pow(pba->H0,2)*(-0.5*pow(mu,2.0)*pow(phi,2.0) + 0.25*lambda*pow(phi,4.0)) + V_const;
+        V_phi = pow(pba->H0,2)*(-pow(mu,2.0)*phi + lambda*pow(phi,3.0)) * phi_varphi;
+
+        printf("a = %g, phi = %g, 1-varphi = %g, omega = %g, omega_phi = %g, V = %g, V_phi = %g, rho_tot = %g\n", a, phi, 1.0-varphi, omega, omega_phi, V, V_phi, rho_tot);
+
+      } else {
+
+        V_const = 0.25*pow(pba->H0,2)*pow(mpl,4.0)*pow(mu,4.)*pow(lambda,-0.5);
+        V = pow(pba->H0,2)*pow(mpl,4.0)*(-pow(mu*mass,2.)*(pow(phi,-0.5)-1)+lambda*pow(mass,4.)*pow(pow(phi,-0.5)-1,2.)) + V_const;           // Mass dimension 2 (Mpc^-2)
+        V_phi = pow(pba->H0,2)*pow(mpl,4.0)*pow(phi,-1.5)*pow(mass,2.)*(0.5*pow(mu,2.) - lambda*pow(mass,2.)*(pow(phi,-0.5)-1.));             // Mass dimension 2 (Mpc^-2)
+
+        // This aims to stop numerical issues by setting an arbitrarily large value for omega as omega -> inf (the GR limit)
+        // No approximation phi \approx 1 in definition of omega.
+        double omega_fac = 0.25*pow(mass,2.)/(pow(phi,0.5)-phi);
+        if (omega_fac < -1.0e30) {
+          omega = 0.5*(-1.0e30-3.);           // Dimensionless
+          omega_phi = 0.0;
+        } else if (omega_fac > 1.0e30) {
+          omega = 0.5*(1.0e30-3.);            // Dimensionless
+          omega_phi = 0.0;
+        } else {
+          omega = 0.5*(omega_fac-3.);         // Dimensionless
+          omega_phi = -2.0*pow(2.0*omega+3.0, 2.)/pow(mass,2.)*(0.5*pow(phi,-0.5)-1.);  // Dimensionless
+        }
+
+        //printf("a = %g, 1 - varphi = %g, omega = %g, omega_phi = %g, V = %g, V_phi = %g\n", a, 1.0 - phi, omega, omega_phi, V, V_phi);
+
+      }
+
+      double V_eff = varphi*varphi*V/2.;
+      double V_eff_phi = varphi*V + varphi*varphi*V_phi/2.;
+
+      G2 = omega/varphi*X - V_eff;
+      G2_X = omega/varphi;
+      G2_Xphi = omega_phi/varphi - omega/pow(varphi,2.);
+      G2_phi = X*(omega_phi/varphi - omega/pow(varphi,2.)) - V_eff_phi;
+
+      G4_smg = (varphi-1.)/2.;
+      G4 = varphi/2.;
       G4_phi = 1./2.;
-
-      // // Substitution of epsilon = (pow(phi,-0.5)-1) to get rid of 1-... being small errors
-      // // Let phi in code = epsilon = 1/(real_phi^(-0.5)-1), X = (d_mu real_phi)^2
-      // double V = -pow(mu*mass,2.)/phi+lambda*pow(mass,4.)*pow(phi,-2.);
-      // double V_phi = pow(mu*mass,2.)*pow(phi,-2.)-2.*lambda*pow(mass,4.)*pow(phi,-3.);
-      // double omega = 0.5*(0.25*pow(mass,2.)*phi-3.);
-      // double omega_phi = 1./8.*pow(mass,2.);
-      //
-      // G2 = omega*X*pow((phi+1.)/phi,2.) - V/2.*pow(phi/(phi+1.),4.);
-      // G2_X = omega*pow((phi+1.)/phi,2.);
-      // G2_Xphi = omega_phi*pow((phi+1.)/phi,2.)-omega*(phi+1.)/pow(phi,3.);
-      // G2_phi = X*(omega_phi*pow((phi+1.)/phi,2.)-omega*(phi+1.)/pow(phi,3.))
-      //           -0.5*pow((phi+1.)/phi,3.)*(4*V/pow(phi,2.)+phi/(phi+1.)*V_phi);
-      //
-      // G4 = pow((phi+1.)/phi,-2.)/2.;
-      // G4_phi = phi/pow(phi+1.,3.);
-      // G4_smg = G4-G4_phi;
-
-      // printf("%f %f %e \n", phi, omega, V);
-
-      // BD debug functions
-      // double V = 3.*pba->parameters_smg[0]*pow(pba->H0,2);
-      // double omega = pba->parameters_smg[1];
-      //
-      // G2 = -V + omega*X/phi;
-      // G2_X = omega/phi;
-      // G2_Xphi = -omega/pow(phi,2);
-      // G2_phi = -omega*X/pow(phi,2);
-
 
     }
 
@@ -3530,8 +3621,10 @@ int background_gravity_functions(
     }
 
     //TODO: Write the Bellini-Sawicki functions and other information to pvecback
-    pvecback[pba->index_bg_phi_smg] = phi; // value of the scalar field phi
-    pvecback[pba->index_bg_phi_prime_smg] = phi_prime; // value of the scalar field phi derivative wrt conformal time
+    pvecback[pba->index_bg_phi_smg] = phi; // value of the scalar field phi - Saved as Einstein frame if solver is working in that frame (default phi_varphi == 1)
+    pvecback[pba->index_bg_phi_prime_smg] = phi_prime * phi_varphi; // value of the scalar field phi derivative wrt conformal time - Saved as Einstein frame if solver is working in that frame (default phi_varphi == 1)
+
+    // From here everything labelled phi should be considered as in the Jordan Frame!
 
     /** - Modified time-time Friedmann equation
      * E0 + E1 H + E3 H^3 = E2 H^2
@@ -3582,7 +3675,7 @@ int background_gravity_functions(
                pba->error_message,
          free(pvecback);free(pvecback_B),
                " H=%e is not a number at a = %e. phi = %e, phi_prime = %e, E0=%e, E1=%e, E2=%e, E3=%e, M_*^2 = %e ",
-               pvecback[pba->index_bg_H],a,phi,phi_prime,E0,E1,E2,E3,pvecback[pba->index_bg_M2_smg]);
+               pvecback[pba->index_bg_H],a,varphi,phi_prime,E0,E1,E2,E3,pvecback[pba->index_bg_M2_smg]);
 
 
     /* alpha_K and alpha_B are needed in the equation and do not depend on phi'' */
@@ -3591,7 +3684,6 @@ int background_gravity_functions(
 
     /* alpha_B braiding */
     pvecback[pba->index_bg_braiding_smg] = ((3.*G5_X + 2.*X*G5_XX)*2.*H*phi_prime*pow(a,-1)*X + ((-1.)*G4_phi + (G3_X + (-2.)*G4_Xphi)*X)*2.*pow(H,-1)*phi_prime*pow(a,-1) + (G4_X + (-1.)*G5_phi + (2.*G4_XX + (-1.)*G5_Xphi)*X)*8.*X)*pow(pvecback[pba->index_bg_M2_smg],-1);
-
 
     /** TODO: add references
       * - Modified space-space Friedmann equation and scalar field equation
@@ -3616,7 +3708,7 @@ int background_gravity_functions(
                pba->error_message,
          free(pvecback);free(pvecback_B),
                "scalar field mixing with metric has degenerate denominator at a = %e, phi = %e, phi_prime = %e \n with A = %e, M =%e, B=%e, F=%e, \n H=%e, E0=%e, E1=%e, E2=%e, E3=%e \n M_*^2 = %e Kineticity = %e, Braiding = %e",
-               a,phi,phi_prime, A, M, B, F,
+               a,varphi,phi_prime, A, M, B, F,
                pvecback[pba->index_bg_H],E0,E1,E2,E3,
                pvecback[pba->index_bg_M2_smg], pvecback[pba->index_bg_kineticity_smg],pvecback[pba->index_bg_braiding_smg]);
 
@@ -3630,11 +3722,7 @@ int background_gravity_functions(
     }
 
     /* Field equation */
-    pvecback[pba->index_bg_phi_prime_prime_smg] = (A*P + (-1.)*F*R)*pow(B*F + (-1.)*A*M,-1);
-
-    //printf("%e ,%e, %e\n", G2_X*pow(H,-1)*pow(a,-2), G2_X, a);
-
-    //printf("a = %g, rho_tot = %g, phi = %g, phi_prime = %g, phi_prime_prime = %g\n", a, rho_tot, phi, phi_prime, pvecback[pba->index_bg_phi_prime_prime_smg]);
+    pvecback[pba->index_bg_phi_prime_prime_smg] = (A*P + (-1.)*F*R)*pow(B*F + (-1.)*A*M,-1); // Modified to allow conversion from Einstein to Jordan frame if necessary (default phi_varphi == 1, phi_varphi_varphi == 0)
 
     /* alpha_T, alpha_M depend on phi''... -> computed now */
     /* alpha_T: tensor speed excess */
@@ -3646,10 +3734,12 @@ int background_gravity_functions(
     /* Energy density of the field */
     pvecback[pba->index_bg_rho_smg] = (5.*G5_X + 2.*X*G5_XX)*2./3.*pow(H,3)*phi_prime*pow(a,-1)*X + ((-1.)*G2 + (G2_X + (-1.)*G3_phi)*2.*X)*1./3. + (G4_phi + (G3_X + (-2.)*G4_Xphi)*(-1.)*X)*(-2.)*H*phi_prime*pow(a,-1) + ((-2.)*G4_smg + ((4.*G4_X + (-3.)*G5_phi)*2. + (2.*G4_XX + (-1.)*G5_Xphi)*4.*X)*X)*pow(H,2);
 
-    //printf("%g, %g\n", pvecback[pba->index_bg_rho_smg], pvecback[pba->index_bg_rho_crit]);
-
     /* Pressure of the field */
     pvecback[pba->index_bg_p_smg] = (G5_X + 2.*X*G5_XX)*2./3.*pow(H,3)*phi_prime*pow(a,-1)*X + ((-4.)/3.*H*phi_prime*pow(a,-2)*X*G5_X + (-2.*G4_smg + (2.*G4_X + (-1.)*G5_phi)*2.*X)*(-2.)/3.*pow(a,-1))*pvecback[pba->index_bg_H_prime] + (6.*G4_smg + ((-2.)*G4_X + (-1.)*G5_phi + (4.*G4_XX + (-3.)*G5_Xphi)*2.*X)*2.*X)*1./3.*pow(H,2) + ((3.*G5_X + 2.*X*G5_XX)*(-2.)/3.*pow(H,2)*pow(a,-2)*X + ((-1.)*G4_phi + (G3_X + (-2.)*G4_Xphi)*X)*(-2.)/3.*pow(a,-2) + (G4_X + (-1.)*G5_phi + (2.*G4_XX + (-1.)*G5_Xphi)*X)*(-4.)/3.*H*phi_prime*pow(a,-3))*pvecback[pba->index_bg_phi_prime_prime_smg] + (G2 + (G3_phi + (-2.)*G4_phiphi)*(-2.)*X)*1./3. + (G4_phi + (G3_X + (-6.)*G4_Xphi + 2.*G5_phiphi)*X)*2./3.*H*phi_prime*pow(a,-1);
+
+    // If we are solving the field in the Einstein frame, we want phi_prime_prime_smg as passed to the solver to be the second derivative of the Einstein frame field. 
+    // However for all the above expressions it was Jordan frame. So now we finally perform the conversion using the chain rule
+    if (einstein_flag) pvecback[pba->index_bg_phi_prime_prime_smg] = pvecback[pba->index_bg_phi_prime_prime_smg] * phi_varphi + pow(phi_prime,2.0) * phi_varphi_varphi;
 
   }// end of if pba->field_evolution_smg
   else{

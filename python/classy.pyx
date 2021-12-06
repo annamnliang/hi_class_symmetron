@@ -1028,6 +1028,9 @@ cdef class Class:
     def Omega_b(self):
         return self.ba.Omega0_b
 
+    #def Omega_smg(self):
+    #    return self.ba.Omega0_smg
+
     def omega_b(self):
         return self.ba.Omega0_b * self.ba.h * self.ba.h
 
