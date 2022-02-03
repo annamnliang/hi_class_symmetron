@@ -2113,6 +2113,7 @@ int background_solve(
 
 
       pvecback[pba->index_bg_lambda_2_smg] = (- 2.*dM2 + bra*M2)*(rho_tot + p_tot)*(-3.)/2.*pow(H,-2)*pow(M2,-1) + ((-2.) + bra)*(rho_smg + p_smg)*(-3.)/2.*pow(H,-2) + pow(H,-1)*bra_p*pow(a,-1);
+      //pvecback[pba->index_bg_lambda_2_smg] = kin + bra + bra*bra;
 
             memcopy_result = memcpy(pba->background_table + i*pba->bg_size + pba->index_bg_lambda_2_smg,
             &pvecback[pba->index_bg_lambda_2_smg],
@@ -2150,7 +2151,6 @@ int background_solve(
       class_test(memcopy_result != pba->background_table + i*pba->bg_size + pba->index_bg_lambda_5_smg,
               pba->error_message,
               "cannot copy data back to pba->background_table");
-
 
       pvecback[pba->index_bg_lambda_6_smg] = 3./2.*(((9./2.*bra + kin)*dM2*pow(M2,-1) + (-9.)/4.*pow(bra,2) - bra*kin/2. + D*run)*pow(rho_tot,2) + ((9.*bra + kin)*dM2*pow(M2,-1) + (-9.)/2.*pow(bra,2) - bra*kin/2. + D*run)*rho_tot*p_tot + 9./2.*bra*(dM2 - M2*bra/2.)*pow(M2,-1)*pow(p_tot,2) + (kin*dM2*pow(M2,-1) - bra*kin/2. + D*run)*(rho_tot + p_tot)*rho_smg + ((kin - bra*kin/2. + D*run)*rho_smg + ((9.*bra + kin)*(2. - bra)/2. + D*run - 9./2.*bra*pow(M2,-1))*rho_tot + 9.*bra*(1. - bra/2. - pow(M2,-1)/2.)*p_tot)*(rho_smg + p_smg) + 9./2.*bra*(1. - bra/2.)*pow(rho_smg + p_smg,2))*pow(H,-4) + (((9.*bra*(rho_tot + p_tot) - 2.*kin*(rho_tot + rho_smg)) + (rho_smg + p_smg)*9.*bra)*bra_p/2. + (rho_tot + rho_smg)*bra*kin_p + (2.*dM2*kin + 3.*pow(bra,2)*M2)*3./2.*pow(M2,-1)*p_tot_p + 3.*D*p_smg_p)*pow(H,-3)*pow(a,-1)/2.;
 
@@ -2191,8 +2191,9 @@ int background_solve(
                 pba->error_message,
                 "cannot copy data back to pba->background_table");
 
-
       pvecback[pba->index_bg_lambda_10_smg] = (D + (-1.)*pvecback[pba->index_bg_lambda_3_smg])*(-2.) + (3.*bra*dM2 + kin*M2)*(rho_tot + p_tot)*3.*pow(H,-2)*pow(M2,-1) + (3.*bra + kin)*(rho_smg + p_smg)*3.*pow(H,-2) + (-1.)*pow(H,-1)*kin_p*pow(a,-1);
+      //pvecback[pba->index_bg_lambda_10_smg] = (D + (-1.)*pvecback[pba->index_bg_lambda_3_smg])*(-2.) + kin*(rho_tot + p_tot)*3.*pow(H,-2)*pow(M2,-1) + (3.*bra + kin)*(2.*bra + kin - bra_p/a/H/M2 - a*H*bra - bra*H_p/H + a*H*bra*bra) - kin_p/a/H;
+      //printf("a = %lf, %g, %g\n", a, pvecback[pba->index_bg_lambda_10_smg], lambda_10);
 
             memcopy_result = memcpy(pba->background_table + i*pba->bg_size + pba->index_bg_lambda_10_smg,
             &pvecback[pba->index_bg_lambda_10_smg],
@@ -2212,6 +2213,7 @@ int background_solve(
                   "cannot copy data back to pba->background_table");
 
       pvecback[pba->index_bg_cs2num_smg] = ((-2.) + bra)*((-1.)*bra + (-2.)*run + 2.*ten + (-1.)*bra*ten)*1./2. + pvecback[pba->index_bg_lambda_2_smg];
+      //pvecback[pba->index_bg_cs2num_smg] = kin + 3.0/2.0*bra*bra;
 
             memcopy_result = memcpy(pba->background_table + i*pba->bg_size + pba->index_bg_cs2num_smg,
             &pvecback[pba->index_bg_cs2num_smg],
@@ -2222,6 +2224,7 @@ int background_solve(
 
 
       pvecback[pba->index_bg_cs2_smg] = pvecback[pba->index_bg_cs2num_smg]/D;
+      //if (D == 0) pvecback[pba->index_bg_cs2_smg] = 1;
 
       memcopy_result = memcpy(pba->background_table + i*pba->bg_size + pba->index_bg_cs2_smg,
             &pvecback[pba->index_bg_cs2_smg],
@@ -3044,6 +3047,9 @@ int background_output_titles(struct background * pba,
 
   //TODO: add in output background trigger
   if (pba->output_background_smg >= 3){
+    class_store_columntitle(titles,"rho_tot_wo_smg",pba->has_smg);
+    class_store_columntitle(titles,"p_tot_wo_smg",pba->has_smg);
+    class_store_columntitle(titles,"H_prime",pba->has_smg);
     class_store_columntitle(titles,"kineticity_prime_smg",pba->has_smg);
     class_store_columntitle(titles,"braiding_prime_smg",pba->has_smg);
     class_store_columntitle(titles,"lambda_1",pba->has_smg);
@@ -3135,6 +3141,9 @@ int background_output_data(
     }
 
     if (pba->output_background_smg >= 3){
+      class_store_double(dataptr,pvecback[pba->index_bg_rho_tot_wo_smg],pba->has_smg,storeidx);
+      class_store_double(dataptr,pvecback[pba->index_bg_p_tot_wo_smg],pba->has_smg,storeidx);
+      class_store_double(dataptr,pvecback[pba->index_bg_H_prime],pba->has_smg,storeidx);
       class_store_double(dataptr,pvecback[pba->index_bg_kineticity_prime_smg],pba->has_smg,storeidx);
       class_store_double(dataptr,pvecback[pba->index_bg_braiding_prime_smg],pba->has_smg,storeidx);
       class_store_double(dataptr,pvecback[pba->index_bg_lambda_1_smg],pba->has_smg,storeidx);
@@ -3459,6 +3468,9 @@ int background_gravity_functions(
         varphi = 1.0 / pow(A_smg, 2.0);
         phi_varphi = -0.5 * pow(A_smg,3.0) / A_smg_phi;
         phi_varphi_varphi = 2.0*pow(mass,2.0)*(3.0/(8.0*phi*pow(varphi,2.5)) - pow(mass,2.0)/(8.0*pow(phi,3.0)*pow(varphi,3.0)));
+        //phi_varphi_varphi = -pow(2.0*pow(mass,2.0) + pow(phi,2.0), 6.0)*(6.0*pow(varphi,0.5) - 5.0)/(256.0*pow(mass,8.0)*pow(phi,3.0));
+        //printf("%lf, %lf\n", phi_varphi_varphi, phi_varphi_varphi2);
+
       }
       phi_prime /= phi_varphi;
       X /= pow(phi_varphi, 2.);
@@ -3555,7 +3567,7 @@ int background_gravity_functions(
         V = pow(pba->H0,2)*(-0.5*pow(mu,2.0)*pow(phi,2.0) + 0.25*lambda*pow(phi,4.0)) + V_const;
         V_phi = pow(pba->H0,2)*(-pow(mu,2.0)*phi + lambda*pow(phi,3.0)) * phi_varphi;
 
-        printf("a = %g, phi = %g, 1-varphi = %g, omega = %g, omega_phi = %g, V = %g, V_phi = %g, rho_tot = %g\n", a, phi, 1.0-varphi, omega, omega_phi, V, V_phi, rho_tot);
+        //printf("a = %g, phi = %g, 1-varphi = %g, omega = %g, omega_phi = %g, V = %g, V_phi = %g, rho_tot = %g\n", a, phi, 1.0-varphi, omega, omega_phi, V, V_phi, rho_tot);
 
       } else {
 
@@ -3739,6 +3751,7 @@ int background_gravity_functions(
 
     // If we are solving the field in the Einstein frame, we want phi_prime_prime_smg as passed to the solver to be the second derivative of the Einstein frame field. 
     // However for all the above expressions it was Jordan frame. So now we finally perform the conversion using the chain rule
+    //printf("a = %g, varphi_prime_prime = %g\n", a, pvecback[pba->index_bg_phi_prime_prime_smg]);
     if (einstein_flag) pvecback[pba->index_bg_phi_prime_prime_smg] = pvecback[pba->index_bg_phi_prime_prime_smg] * phi_varphi + pow(phi_prime,2.0) * phi_varphi_varphi;
 
   }// end of if pba->field_evolution_smg
