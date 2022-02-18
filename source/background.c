@@ -2212,8 +2212,8 @@ int background_solve(
                   pba->error_message,
                   "cannot copy data back to pba->background_table");
 
-      pvecback[pba->index_bg_cs2num_smg] = ((-2.) + bra)*((-1.)*bra + (-2.)*run + 2.*ten + (-1.)*bra*ten)*1./2. + pvecback[pba->index_bg_lambda_2_smg];
-      //pvecback[pba->index_bg_cs2num_smg] = kin + 3.0/2.0*bra*bra;
+      //pvecback[pba->index_bg_cs2num_smg] = ((-2.) + bra)*((-1.)*bra + (-2.)*run + 2.*ten + (-1.)*bra*ten)*1./2. + pvecback[pba->index_bg_lambda_2_smg];
+      pvecback[pba->index_bg_cs2num_smg] = kin + 3.0/2.0*bra*bra;
 
             memcopy_result = memcpy(pba->background_table + i*pba->bg_size + pba->index_bg_cs2num_smg,
             &pvecback[pba->index_bg_cs2num_smg],
@@ -2223,8 +2223,9 @@ int background_solve(
               "cannot copy data back to pba->background_table");
 
 
-      pvecback[pba->index_bg_cs2_smg] = pvecback[pba->index_bg_cs2num_smg]/D;
+      //pvecback[pba->index_bg_cs2_smg] = pvecback[pba->index_bg_cs2num_smg]/D;
       //if (D == 0) pvecback[pba->index_bg_cs2_smg] = 1;
+      pvecback[pba->index_bg_cs2_smg] = 1; // TODO: Hard-setting the sound speed to 1. This is specific to the symmetron model
 
       memcopy_result = memcpy(pba->background_table + i*pba->bg_size + pba->index_bg_cs2_smg,
             &pvecback[pba->index_bg_cs2_smg],
